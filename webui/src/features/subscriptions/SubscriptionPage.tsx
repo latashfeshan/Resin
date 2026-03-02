@@ -131,8 +131,10 @@ export function SubscriptionPage() {
   const queryClient = useQueryClient();
   const enabledValue = parseEnabledFilter(enabledFilter);
   const subscriptionContentPlaceholder = [
+    t("支持格式（每行一个样例）："),
     `{"outbounds":[{"type":"shadowsocks","server":"1.2.3.4","server_port":443,"method":"aes-256-gcm","password":"pass"}]}`,
-    `{"proxies":[{"name":"node-1","type":"vmess","server":"1.2.3.4","port":443,"uuid":"26a1d547-b031-4139-9fc5-6671e1d0408a"}]}`,
+    "proxies:",
+    "- { name: node-1, type: vmess, server: 1.2.3.4, port: 443, uuid: 26a1d547-b031-4139-9fc5-6671e1d0408a }",
     "vmess://...",
     "vless://...",
     "trojan://...",
