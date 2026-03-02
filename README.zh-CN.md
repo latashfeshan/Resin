@@ -145,7 +145,7 @@ curl http://127.0.0.1:2260/my-token/MyPlatform:/https/api.ipify.org
 
 - sing-box JSON：`{"outbounds":[...]}` 或原始出站数组 `[...]`。
 - Clash JSON/YAML：`{"proxies":[...]}` 或 YAML `proxies:`。
-- URI 行格式（每行一个节点）：`vmess://`、`vless://`、`trojan://`、`ss://`、`hysteria2://`。
+- URI 行格式（每行一个节点）：`vmess://`、`vless://`、`trojan://`、`ss://`、`hysteria2://`、`http://`、`https://`、`socks5://`、`socks5h://`。
 - 纯 HTTP 代理行：`IP:PORT` 或 `IP:PORT:USER:PASS`（支持 IPv4 和 IPv6）。
 - Base64 包裹的文本订阅（例如 URI 行或纯文本节点列表）。
 
