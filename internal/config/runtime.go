@@ -49,8 +49,8 @@ func NewDefaultRuntimeConfig() *RuntimeConfig {
 		ReverseProxyLogRespBodyMaxBytes:    1024,
 
 		MaxConsecutiveFailures:          3,
-		MaxLatencyTestInterval:          Duration(5 * time.Minute),
-		MaxAuthorityLatencyTestInterval: Duration(1 * time.Hour),
+		MaxLatencyTestInterval:          Duration(1 * time.Hour),
+		MaxAuthorityLatencyTestInterval: Duration(3 * time.Hour),
 		MaxEgressTestInterval:           Duration(24 * time.Hour),
 
 		LatencyTestURL:     "https://www.gstatic.com/generate_204",

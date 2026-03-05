@@ -319,11 +319,11 @@ func (m *ProbeManager) scanEgress() {
 // scanLatency iterates all pool nodes and probes those due for latency check.
 func (m *ProbeManager) scanLatency() {
 	now := time.Now()
-	maxLatencyInterval := 5 * time.Minute // default
+	maxLatencyInterval := 1 * time.Hour // default
 	if m.maxLatencyTestInterval != nil {
 		maxLatencyInterval = m.maxLatencyTestInterval()
 	}
-	maxAuthorityInterval := 1 * time.Hour // default
+	maxAuthorityInterval := 3 * time.Hour // default
 	if m.maxAuthorityLatencyTestInterval != nil {
 		maxAuthorityInterval = m.maxAuthorityLatencyTestInterval()
 	}
