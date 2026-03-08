@@ -124,10 +124,6 @@ function formatShortNumber(value: number): string {
   return `${Math.round(value)}`;
 }
 
-function formatPercentAxis(value: number): string {
-  return `${Math.round(value)}%`;
-}
-
 function formatLatency(value: number): string {
   if (!Number.isFinite(value) || value < 0) {
     return "0ms";
@@ -461,34 +457,6 @@ function TrendTooltipContent({ active, payload, label, lines, valueFormatter }: 
   );
 }
 
-function RequestQualityTooltipContent({ active, payload, label }: any) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  return (
-    <div className="trend-tooltip">
-      <p className="trend-tooltip-time">{label ?? "--"}</p>
-      <div className="trend-tooltip-list">
-        {payload.map((entry: any) => {
-          const isRate = entry.dataKey === "success_rate";
-          const valueStr = isRate ? `${Number(entry.value).toFixed(1)}%` : formatCount(Number(entry.value));
-
-          return (
-            <p key={entry.dataKey} className="trend-tooltip-row">
-              <span>
-                <i style={{ background: entry.color }} />
-                {entry.name}
-              </span>
-              <b>{valueStr}</b>
-            </p>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function HistogramTooltipContent({ active, payload }: any) {
   const { t } = useI18n();
 
@@ -569,88 +537,6 @@ function TrendLineChart({ data, lines, yTickFormatter, emptyText }: TrendLineCha
                 connectNulls
               />
             ))}
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function RequestQualityChart({
-  data,
-  emptyText,
-}: {
-  data: Array<{ label: string; total_requests: number; success_rate: number }>;
-  emptyText: string;
-}) {
-  const { t } = useI18n();
-
-  if (!data.length) {
-    return <EmptyChart text={emptyText} />;
-  }
-
-  return (
-    <div className="trend-chart">
-      <div className="trend-svg">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 4, left: 8 }}>
-            <CartesianGrid stroke="rgba(65, 87, 121, 0.16)" strokeDasharray="2 4" vertical={false} />
-            <XAxis
-              dataKey="label"
-              interval="preserveStartEnd"
-              minTickGap={18}
-              tickMargin={4}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#607191", fontSize: 11, fontWeight: 600 }}
-            />
-            <YAxis
-              yAxisId="left"
-              width="auto"
-              tickMargin={4}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#657691", fontSize: 11, fontWeight: 600 }}
-              tickFormatter={(value) => formatShortNumber(toNumber(value))}
-              domain={[0, "auto"]}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              width="auto"
-              tickMargin={4}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#657691", fontSize: 11, fontWeight: 600 }}
-              tickFormatter={(value) => formatPercentAxis(toNumber(value))}
-              domain={[0, 100]}
-            />
-            <Tooltip
-              cursor={{ stroke: "rgba(15, 94, 216, 0.34)", strokeWidth: 1 }}
-              wrapperStyle={{ outline: "none" }}
-              content={<RequestQualityTooltipContent />}
-            />
-            <Bar
-              yAxisId="left"
-              dataKey="total_requests"
-              name={t("请求总数")}
-              fill="rgba(37, 108, 233, 0.76)"
-              radius={[4, 4, 0, 0]}
-              maxBarSize={24}
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="success_rate"
-              name={t("成功率")}
-              stroke="#0f9d8b"
-              strokeWidth={1.8}
-              dot={false}
-              activeDot={{ r: 3, stroke: "#ffffff", strokeWidth: 1, fill: "#0f9d8b" }}
-              isAnimationActive={false}
-              connectNulls
-            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -873,7 +759,7 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
     return downsampleArray(sortedRequestsItems, MAX_TREND_POINTS).map((item) => ({
       label: formatClock(item.bucket_start),
       total_requests: item.total_requests,
-      success_rate: item.success_rate * 100,
+      success_requests: item.success_requests,
     }));
   }, [sortedRequestsItems, locale]);
 
@@ -981,13 +867,21 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
 
         <Card className="dashboard-panel">
           <div className="dashboard-panel-header">
-            <h3>{t("请求质量")}</h3>
-            <p>{t("请求总量 + 成功率")}</p>
+            <h3>{t("请求统计")}</h3>
+            <p>{t("总请求数 / 成功请求数")}</p>
           </div>
-          <RequestQualityChart data={requestTrendData} emptyText={t("暂无请求统计数据")} />
+          <TrendLineChart
+            data={requestTrendData}
+            emptyText={t("暂无请求统计数据")}
+            yTickFormatter={formatShortNumber}
+            lines={[
+              { dataKey: "total_requests", name: t("总请求数"), color: "#2467e4" },
+              { dataKey: "success_requests", name: t("成功请求数"), color: "#0f9d8b" },
+            ]}
+          />
           <div className="dashboard-summary-inline">
             <span>{t("总请求")} {formatCount(totalRequests)}</span>
-            <span>{t("成功率")} {formatPercent(requestSuccessRatio)}</span>
+            <span>{t("成功请求")} {formatCount(successRequests)}</span>
           </div>
         </Card>
 
