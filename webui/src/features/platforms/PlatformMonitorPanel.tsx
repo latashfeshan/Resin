@@ -52,6 +52,7 @@ type TrendLineChartProps = {
   data: Array<Record<string, number | string>>;
   lines: TrendLineDefinition[];
   yTickFormatter?: (value: number) => string;
+  tooltipValueFormatter?: (value: number) => string;
   emptyText: string;
 };
 
@@ -182,7 +183,7 @@ function formatLeaseDuration(value: number): string {
     parts.push(`${seconds} 秒`);
   }
 
-  return parts.slice(0, 2).join("") || `${wholeSeconds} 秒`;
+  return parts.slice(0, 2).join(" ") || `${wholeSeconds} 秒`;
 }
 
 function formatClock(iso: string): string {
@@ -537,12 +538,13 @@ function EmptyChart({ text }: { text: string }) {
   );
 }
 
-function TrendLineChart({ data, lines, yTickFormatter, emptyText }: TrendLineChartProps) {
+function TrendLineChart({ data, lines, yTickFormatter, tooltipValueFormatter, emptyText }: TrendLineChartProps) {
   if (!data.length || !lines.length) {
     return <EmptyChart text={emptyText} />;
   }
 
   const formatYAxis = yTickFormatter ?? formatShortNumber;
+  const formatTooltip = tooltipValueFormatter ?? formatYAxis;
 
   return (
     <div className="trend-chart">
@@ -571,7 +573,7 @@ function TrendLineChart({ data, lines, yTickFormatter, emptyText }: TrendLineCha
             <Tooltip
               cursor={{ stroke: "rgba(15, 94, 216, 0.34)", strokeWidth: 1 }}
               wrapperStyle={{ outline: "none" }}
-              content={<TrendTooltipContent lines={lines} valueFormatter={formatYAxis} />}
+              content={<TrendTooltipContent lines={lines} valueFormatter={formatTooltip} />}
             />
             {lines.map((line) => (
               <Line
@@ -947,7 +949,8 @@ export function PlatformMonitorPanel({ platform }: { platform: Platform }) {
           <TrendLineChart
             data={leaseLifetimeTrendData}
             emptyText={t("暂无租约生命周期数据")}
-            yTickFormatter={formatLeaseDuration}
+            yTickFormatter={formatLatency}
+            tooltipValueFormatter={formatLeaseDuration}
             lines={[
               { dataKey: "p1_ms", name: "P1", color: "#2d63d8" },
               { dataKey: "p5_ms", name: "P5", color: "#0f9d8b" },

@@ -99,7 +99,7 @@ export function formatGoDuration(input: string, emptyLabel = "-"): string {
     parts.push(`${seconds} 秒`);
   }
 
-  return parts.slice(0, 2).join("");
+  return parts.slice(0, 2).join(" ");
 }
 
 export function formatRelativeTime(input: string | null | undefined, emptyLabel = "-"): string {
