@@ -3690,8 +3690,48 @@ func setTLSFromClash(outbound map[string]any, proxy map[string]any, key string) 
 		getString(proxy, "client_fingerprint"),
 		getString(proxy, "fp"),
 	))
+	applyClashRealityToTLS(tls, proxy)
 	applyTLSCertificateFromClash(tls, proxy)
 	outbound["tls"] = tls
+}
+
+func applyClashRealityToTLS(tls map[string]any, proxy map[string]any) {
+	var realitySource map[string]any
+	if realityOpts, ok := getMap(proxy, "reality-opts", "reality_opts"); ok {
+		realitySource = realityOpts
+	} else {
+		realitySource = proxy
+	}
+
+	publicKey := strings.TrimSpace(firstNonEmpty(
+		getString(realitySource, "public-key"),
+		getString(realitySource, "public_key"),
+		getString(realitySource, "pbk"),
+	))
+	shortID := strings.TrimSpace(firstNonEmpty(
+		getString(realitySource, "short-id"),
+		getString(realitySource, "short_id"),
+		getString(realitySource, "sid"),
+	))
+	if publicKey == "" && shortID == "" {
+		return
+	}
+
+	reality := map[string]any{"enabled": true}
+	if publicKey != "" {
+		reality["public_key"] = publicKey
+	}
+	if shortID != "" {
+		reality["short_id"] = shortID
+	}
+	tls["reality"] = reality
+
+	if _, hasUTLS := tls["utls"]; !hasUTLS {
+		tls["utls"] = map[string]any{
+			"enabled":     true,
+			"fingerprint": "chrome",
+		}
+	}
 }
 
 func applyUTLSFromValue(tls map[string]any, rawFingerprint string) {
@@ -3872,6 +3912,7 @@ func setV2RayTransportFromClash(outbound map[string]any, proxy map[string]any) b
 		return true
 	case "ws":
 		setWSTransportFromClash(outbound, proxy)
+		normalizeTLSALPNForWSTransport(outbound)
 		return true
 	case "grpc":
 		transport := map[string]any{"type": "grpc"}
@@ -3957,6 +3998,7 @@ func setV2RayTransportFromURI(outbound map[string]any, network string, rawPath s
 			transport["headers"] = map[string]any{"Host": host}
 		}
 		outbound["transport"] = transport
+		normalizeTLSALPNForWSTransport(outbound)
 		return true
 	case "grpc":
 		transport := map[string]any{"type": "grpc"}
@@ -3998,6 +4040,39 @@ func setV2RayTransportFromURI(outbound map[string]any, network string, rawPath s
 	default:
 		return false
 	}
+}
+
+func normalizeTLSALPNForWSTransport(outbound map[string]any) {
+	tls, ok := outbound["tls"].(map[string]any)
+	if !ok {
+		return
+	}
+	rawALPN, ok := tls["alpn"]
+	if !ok {
+		return
+	}
+
+	var keep []string
+	switch values := rawALPN.(type) {
+	case []string:
+		for _, value := range values {
+			if strings.EqualFold(strings.TrimSpace(value), "http/1.1") {
+				keep = append(keep, "http/1.1")
+			}
+		}
+	case []any:
+		for _, value := range values {
+			if strings.EqualFold(strings.TrimSpace(fmt.Sprint(value)), "http/1.1") {
+				keep = append(keep, "http/1.1")
+			}
+		}
+	}
+
+	if len(keep) == 0 {
+		delete(tls, "alpn")
+		return
+	}
+	tls["alpn"] = keep
 }
 
 func firstNonEmptyValue(value any) string {

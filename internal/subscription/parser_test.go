@@ -856,6 +856,91 @@ func TestParseGeneralSubscription_ClashJSON_HysteriaAdvancedFields(t *testing.T)
 	}
 }
 
+func TestParseGeneralSubscription_ClashJSON_VLESSRealityOpts(t *testing.T) {
+	data := []byte(`{
+		"proxies": [
+				{
+					"name": "vless-reality",
+					"type": "vless",
+					"server": "203.0.113.10",
+					"port": 2053,
+					"uuid": "11111111-2222-3333-4444-555555555555",
+					"tls": true,
+					"flow": "xtls-rprx-vision",
+					"client-fingerprint": "chrome",
+					"network": "tcp",
+					"servername": "reality.example.com",
+					"reality-opts": {
+						"public-key": "test-public-key-abcdef1234567890",
+						"short-id": "0123456789abcd"
+					}
+				}
+		]
+	}`)
+
+	nodes, err := ParseGeneralSubscription(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 parsed node, got %d", len(nodes))
+	}
+
+	obj := parseNodeRaw(t, nodes[0].RawOptions)
+	tls := mustMapField(t, obj, "tls")
+	reality := mustMapField(t, tls, "reality")
+	if got := reality["enabled"]; got != true {
+		t.Fatalf("tls.reality.enabled: got %v", got)
+	}
+	if got := reality["public_key"]; got != "test-public-key-abcdef1234567890" {
+		t.Fatalf("tls.reality.public_key: got %v", got)
+	}
+	if got := reality["short_id"]; got != "0123456789abcd" {
+		t.Fatalf("tls.reality.short_id: got %v", got)
+	}
+}
+
+func TestParseGeneralSubscription_ClashJSON_VLESSWSDropsALPN(t *testing.T) {
+	data := []byte(`{
+		"proxies": [
+				{
+					"name": "vless-ws-alpn",
+					"type": "vless",
+					"server": "ws-edge.example.com",
+					"port": 443,
+					"uuid": "22222222-3333-4444-5555-666666666666",
+					"tls": true,
+					"client-fingerprint": "chrome",
+					"alpn": ["h2", "http/1.1"],
+					"network": "ws",
+					"ws-opts": {
+						"path": "/ws-test-path"
+					},
+					"servername": "ws-edge.example.com"
+				}
+			]
+		}`)
+
+	nodes, err := ParseGeneralSubscription(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 parsed node, got %d", len(nodes))
+	}
+
+	obj := parseNodeRaw(t, nodes[0].RawOptions)
+	tls := mustMapField(t, obj, "tls")
+	alpn := mustSliceField(t, tls, "alpn")
+	if len(alpn) != 1 || alpn[0] != "http/1.1" {
+		t.Fatalf("tls.alpn for ws transport: got %v, want [http/1.1]", alpn)
+	}
+	transport := mustMapField(t, obj, "transport")
+	if got := transport["type"]; got != "ws" {
+		t.Fatalf("transport.type: got %v", got)
+	}
+}
+
 func TestParseGeneralSubscription_ClashJSON_Hysteria2AdvancedFields(t *testing.T) {
 	data := []byte(`{
 		"proxies": [
@@ -1244,6 +1329,26 @@ func TestParseGeneralSubscription_VLESSWSPathUnknownQueryPreserved(t *testing.T)
 	}
 }
 
+func TestParseGeneralSubscription_VLESSURIWSDropsALPN(t *testing.T) {
+	data := []byte(
+		"vless://11111111-2222-3333-4444-555555555555@example.com:443?type=ws&security=tls&sni=example.com&alpn=h2%2Ch3&path=%2Fws",
+	)
+
+	nodes, err := ParseGeneralSubscription(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 parsed node, got %d", len(nodes))
+	}
+
+	obj := parseNodeRaw(t, nodes[0].RawOptions)
+	tls := mustMapField(t, obj, "tls")
+	if _, ok := tls["alpn"]; ok {
+		t.Fatalf("tls.alpn should be absent for ws transport, got %v", tls["alpn"])
+	}
+}
+
 func TestParseGeneralSubscription_VLESSURITLSAdvancedFields(t *testing.T) {
 	data := []byte(
 		"vless://11111111-2222-3333-4444-555555555555@example.com:443?type=tcp&security=tls&sni=example.com&allowInsecure=1&alpn=h2%2Ch3&fp=firefox",
@@ -1366,7 +1471,7 @@ vless://11111111-2222-3333-4444-555555555553@example.com:443?type=httpupgrade&se
 }
 
 func TestParseGeneralSubscription_VMessURITLSAdvancedFields(t *testing.T) {
-	vmessPayload := `{"v":"2","ps":"vmess-test","add":"example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"ws","type":"none","host":"ws.example.com","path":"/ws","tls":"tls","allowInsecure":"1","alpn":"h2,h3","fp":"safari"}`
+	vmessPayload := `{"v":"2","ps":"vmess-test","add":"example.com","port":"443","id":"11111111-2222-3333-4444-555555555555","aid":"0","net":"tcp","type":"none","tls":"tls","allowInsecure":"1","alpn":"h2,h3","fp":"safari"}`
 	data := []byte("vmess://" + base64.StdEncoding.EncodeToString([]byte(vmessPayload)))
 
 	nodes, err := ParseGeneralSubscription(data)
@@ -1437,7 +1542,7 @@ func TestParseGeneralSubscription_VMessURIExtendedTransports(t *testing.T) {
 
 func TestParseGeneralSubscription_TrojanURITLSAdvancedFields(t *testing.T) {
 	data := []byte(
-		"trojan://password@example.com:443?type=ws&sni=example.com&allowInsecure=1&alpn=h2%2Chttp%2F1.1&fp=edge&path=%2Fws",
+		"trojan://password@example.com:443?type=tcp&sni=example.com&allowInsecure=1&alpn=h2%2Chttp%2F1.1&fp=edge",
 	)
 
 	nodes, err := ParseGeneralSubscription(data)
