@@ -56,6 +56,13 @@ type Socks5Inbound struct {
 	events      EventEmitter
 }
 
+type socks5HandshakeResult struct {
+	platformName string
+	account      string
+	target       string
+	ok           bool
+}
+
 // NewSocks5Inbound creates a new SOCKS5 inbound handler.
 func NewSocks5Inbound(cfg Socks5InboundConfig) *Socks5Inbound {
 	ev := cfg.Events
@@ -94,33 +101,14 @@ func (s *Socks5Inbound) ServeConnContext(baseCtx context.Context, conn net.Conn,
 		reader = bufio.NewReader(conn)
 	}
 
-	if s.authVersion != config.AuthVersionV1 {
-		_, _ = conn.Write([]byte{socks5Version, socks5MethodNoAcceptable})
+	handshakePhase := startSocks5HandshakePhase(baseCtx, conn)
+	defer handshakePhase.Stop()
+
+	handshake := s.performHandshake(conn, reader)
+	if !handshake.ok {
 		return
 	}
-
-	method, ok := s.negotiateMethod(conn, reader)
-	if !ok {
-		return
-	}
-
-	platformName := ""
-	account := ""
-	if method == socks5MethodUserPass {
-		var authOK bool
-		platformName, account, authOK = s.authenticateUserPass(conn, reader)
-		if !authOK {
-			return
-		}
-	}
-
-	target, replyCode, ok := readSocks5ConnectRequest(reader)
-	if !ok {
-		if replyCode != 0 {
-			_ = writeSocks5Reply(conn, replyCode, nil)
-		}
-		return
-	}
+	handshakePhase.Stop()
 
 	lifecycle := newRequestLifecycleFromMetadata(
 		s.events,
@@ -130,8 +118,8 @@ func (s *Socks5Inbound) ServeConnContext(baseCtx context.Context, conn net.Conn,
 		true,
 		false,
 	)
-	lifecycle.setTarget(target, "")
-	lifecycle.setAccount(account)
+	lifecycle.setTarget(handshake.target, "")
+	lifecycle.setAccount(handshake.account)
 	defer lifecycle.finish()
 
 	prepareMonitor, err := startSocks5PrepareMonitor(baseCtx, conn, reader)
@@ -141,7 +129,14 @@ func (s *Socks5Inbound) ServeConnContext(baseCtx context.Context, conn net.Conn,
 	// The prepare monitor has drained any unread bytes it needs from reader.
 	// Drop the handshake reader reference so long-lived tunnels don't retain it.
 	reader = nil
-	prepare := prepareConnectTunnel(prepareMonitor.Context(), s.tunnel, lifecycle, platformName, account, target)
+	prepare := prepareConnectTunnel(
+		prepareMonitor.Context(),
+		s.tunnel,
+		lifecycle,
+		handshake.platformName,
+		handshake.account,
+		handshake.target,
+	)
 	prepareMonitor.Stop()
 	if prepare.session == nil {
 		if prepare.proxyErr != nil {
@@ -169,6 +164,93 @@ func (s *Socks5Inbound) ServeConnContext(baseCtx context.Context, conn net.Conn,
 	}
 
 	pumpPreparedTunnelReader(conn, prepareMonitor.ClientReader(), prepare.session, lifecycle, tunnelPumpOptions{})
+}
+
+func (s *Socks5Inbound) performHandshake(conn net.Conn, reader *bufio.Reader) socks5HandshakeResult {
+	if s.authVersion != config.AuthVersionV1 {
+		_, _ = conn.Write([]byte{socks5Version, socks5MethodNoAcceptable})
+		return socks5HandshakeResult{}
+	}
+
+	method, ok := s.negotiateMethod(conn, reader)
+	if !ok {
+		return socks5HandshakeResult{}
+	}
+
+	result := socks5HandshakeResult{ok: true}
+	if method == socks5MethodUserPass {
+		var authOK bool
+		result.platformName, result.account, authOK = s.authenticateUserPass(conn, reader)
+		if !authOK {
+			return socks5HandshakeResult{}
+		}
+	}
+
+	target, replyCode, ok := readSocks5ConnectRequest(reader)
+	if !ok {
+		if replyCode != 0 {
+			_ = writeSocks5Reply(conn, replyCode, nil)
+		}
+		return socks5HandshakeResult{}
+	}
+
+	result.target = target
+	return result
+}
+
+type socks5HandshakePhase struct {
+	conn     net.Conn
+	stopCh   chan struct{}
+	done     chan struct{}
+	stopOnce sync.Once
+}
+
+func startSocks5HandshakePhase(baseCtx context.Context, conn net.Conn) *socks5HandshakePhase {
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	phase := &socks5HandshakePhase{
+		conn:   conn,
+		stopCh: make(chan struct{}),
+		done:   make(chan struct{}),
+	}
+	go phase.run(baseCtx)
+	return phase
+}
+
+func (p *socks5HandshakePhase) run(baseCtx context.Context) {
+	defer close(p.done)
+	if p == nil || p.conn == nil {
+		return
+	}
+
+	select {
+	case <-p.stopCh:
+		return
+	case <-baseCtx.Done():
+		// Interrupt any blocking handshake read/write. The handler clears these
+		// deadlines before transitioning into the long-lived tunnel phase.
+		_ = p.conn.SetReadDeadline(time.Now())
+		_ = p.conn.SetWriteDeadline(time.Now())
+	}
+}
+
+func (p *socks5HandshakePhase) Stop() {
+	if p == nil {
+		return
+	}
+	p.stopOnce.Do(func() {
+		if p.stopCh != nil {
+			close(p.stopCh)
+		}
+		if p.done != nil {
+			<-p.done
+		}
+		if p.conn != nil {
+			_ = p.conn.SetReadDeadline(time.Time{})
+			_ = p.conn.SetWriteDeadline(time.Time{})
+		}
+	})
 }
 
 type socks5PrepareMonitor struct {

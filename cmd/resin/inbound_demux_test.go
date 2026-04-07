@@ -11,6 +11,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Resinat/Resin/internal/config"
+	"github.com/Resinat/Resin/internal/proxy"
 )
 
 type stubSocksHandler struct {
@@ -63,6 +66,23 @@ func (h *stubSocksHandler) ServeConnContext(_ context.Context, conn net.Conn, re
 		h.firstByteCh <- b
 	}
 	_, _ = conn.Write([]byte{0x05, 0x00})
+}
+
+func waitForDemuxConnState(t *testing.T, demux *inboundDemuxServer, wantActive int, wantSniff int) {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		demux.mu.Lock()
+		active := len(demux.activeConns)
+		sniff := len(demux.sniffConns)
+		demux.mu.Unlock()
+		if active == wantActive && sniff == wantSniff {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for demux conn state active=%d sniff=%d", wantActive, wantSniff)
 }
 
 func TestInboundDemux_RoutesHTTPToHTTPServer(t *testing.T) {
@@ -290,6 +310,8 @@ func TestInboundDemux_ShutdownClosesIdleSniffConnectionsPromptly(t *testing.T) {
 	}
 	defer idleConn.Close()
 
+	waitForDemuxConnState(t, demux, 1, 1)
+
 	shutdownDone := make(chan error, 1)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -310,6 +332,72 @@ func TestInboundDemux_ShutdownClosesIdleSniffConnectionsPromptly(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("shutdown did not finish promptly")
+	}
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for demux server to stop")
+	}
+}
+
+func TestInboundDemux_ShutdownUnblocksSocksHandshakePhase(t *testing.T) {
+	httpServer := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t.Fatalf("unexpected HTTP handler invocation for partial SOCKS5 handshake")
+		}),
+	}
+
+	socksHandler := proxy.NewSocks5Inbound(proxy.Socks5InboundConfig{
+		AuthVersion: string(config.AuthVersionV1),
+	})
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+
+	demux := newInboundDemuxServer(httpServer, socksHandler)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- demux.Serve(ln)
+	}()
+
+	clientConn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial socks conn: %v", err)
+	}
+	defer clientConn.Close()
+
+	if _, err := clientConn.Write([]byte{0x05, 0x01}); err != nil {
+		t.Fatalf("write partial socks handshake: %v", err)
+	}
+
+	waitForDemuxConnState(t, demux, 1, 0)
+
+	shutdownDone := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		shutdownDone <- demux.Shutdown(ctx)
+	}()
+
+	_ = clientConn.SetReadDeadline(time.Now().Add(time.Second))
+	buf := make([]byte, 1)
+	if _, err := clientConn.Read(buf); !errors.Is(err, io.EOF) {
+		t.Fatalf("partial socks handshake conn should be closed during shutdown, got %v", err)
+	}
+
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("shutdown did not finish promptly for partial socks handshake")
 	}
 
 	select {

@@ -800,3 +800,29 @@ func TestSocks5Inbound_BaseContextCancelCancelsPrepareDial(t *testing.T) {
 
 	_ = clientConn.Close()
 }
+
+func TestSocks5Inbound_BaseContextCancelInterruptsHandshake(t *testing.T) {
+	inbound := NewSocks5Inbound(Socks5InboundConfig{
+		ProxyToken:  "tok",
+		AuthVersion: string(config.AuthVersionV1),
+	})
+
+	clientConn, serverConn := net.Pipe()
+	done := make(chan struct{})
+	baseCtx, cancelBase := context.WithCancel(context.Background())
+	go func() {
+		defer close(done)
+		inbound.ServeConnContext(baseCtx, serverConn, bufio.NewReader(serverConn))
+	}()
+
+	writeAll(t, clientConn, []byte{socks5Version, 1})
+	cancelBase()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("ServeConnContext should return after base context cancel interrupts handshake")
+	}
+
+	_ = clientConn.Close()
+}
