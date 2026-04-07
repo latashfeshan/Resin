@@ -107,6 +107,22 @@ func (c *countingConn) Close() error {
 	return c.Conn.Close()
 }
 
+func (c *countingConn) CloseWrite() error {
+	closeWriter, ok := c.Conn.(interface{ CloseWrite() error })
+	if !ok {
+		return nil
+	}
+	return closeWriter.CloseWrite()
+}
+
+func (c *countingConn) CloseRead() error {
+	closeReader, ok := c.Conn.(interface{ CloseRead() error })
+	if !ok {
+		return nil
+	}
+	return closeReader.CloseRead()
+}
+
 // countingListener wraps a net.Listener, emitting connection lifecycle events
 // on Accept (open) and on each connection's Close.
 type countingListener struct {

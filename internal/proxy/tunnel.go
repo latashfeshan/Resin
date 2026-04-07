@@ -144,45 +144,60 @@ func pumpPreparedTunnelReader(
 		n   int64
 		err error
 	}
+	ingressBytesCh := make(chan copyResult, 1)
 	egressBytesCh := make(chan copyResult, 1)
 	go func() {
-		defer session.upstreamConn.Close()
-		defer clientConn.Close()
 		n, copyErr := io.Copy(session.upstreamConn, clientToUpstream)
+		closeWriteConn(session.upstreamConn)
 		egressBytesCh <- copyResult{n: n, err: copyErr}
 	}()
+	go func() {
+		n, copyErr := io.Copy(clientConn, session.upstreamConn)
+		closeWriteConn(clientConn)
+		ingressBytesCh <- copyResult{n: n, err: copyErr}
+	}()
 
-	ingressBytes, ingressCopyErr := io.Copy(clientConn, session.upstreamConn)
-	lifecycle.addIngressBytes(ingressBytes)
-	clientConn.Close()
-	session.upstreamConn.Close()
-
+	ingressResult := <-ingressBytesCh
 	egressResult := <-egressBytesCh
+	_ = clientConn.Close()
+	_ = session.upstreamConn.Close()
+	lifecycle.addIngressBytes(ingressResult.n)
 	lifecycle.addEgressBytes(egressResult.n)
 
 	okResult := true
 	switch {
-	case !isBenignTunnelCopyError(ingressCopyErr):
+	case !isBenignTunnelCopyError(ingressResult.err):
 		okResult = false
 		lifecycle.setProxyError(ErrUpstreamRequestFailed)
-		lifecycle.setUpstreamError("connect_upstream_to_client_copy", ingressCopyErr)
+		lifecycle.setUpstreamError("connect_upstream_to_client_copy", ingressResult.err)
 	case !isBenignTunnelCopyError(egressResult.err):
 		okResult = false
 		lifecycle.setProxyError(ErrUpstreamRequestFailed)
 		lifecycle.setUpstreamError("connect_client_to_upstream_copy", egressResult.err)
-	case opts.requireBidirectionalTraffic && (ingressBytes == 0 || egressResult.n == 0):
+	case opts.requireBidirectionalTraffic && (ingressResult.n == 0 || egressResult.n == 0):
 		okResult = false
 		lifecycle.setProxyError(ErrUpstreamRequestFailed)
 		switch {
-		case ingressBytes == 0 && egressResult.n == 0:
+		case ingressResult.n == 0 && egressResult.n == 0:
 			lifecycle.setUpstreamError("connect_zero_traffic", nil)
-		case ingressBytes == 0:
+		case ingressResult.n == 0:
 			lifecycle.setUpstreamError("connect_no_ingress_traffic", nil)
 		default:
 			lifecycle.setUpstreamError("connect_no_egress_traffic", nil)
 		}
 	}
 	session.recordResult(okResult)
+}
+
+func closeWriteConn(conn net.Conn) {
+	if conn == nil {
+		return
+	}
+	closeWriter, ok := conn.(interface{ CloseWrite() error })
+	if !ok {
+		return
+	}
+	_ = closeWriter.CloseWrite()
 }
 
 // makeTunnelClientReader returns a reader for client->upstream copy that
