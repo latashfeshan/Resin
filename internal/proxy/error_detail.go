@@ -163,3 +163,17 @@ func isBenignTunnelCopyError(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "closed network connection")
 }
+
+func isClientReadResetError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	switch extractErrnoCode(err) {
+	case "ECONNRESET", "ECONNABORTED":
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "connection reset by peer") || strings.Contains(msg, "software caused connection abort")
+}

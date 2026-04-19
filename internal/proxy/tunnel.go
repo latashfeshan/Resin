@@ -179,18 +179,27 @@ func pumpPreparedTunnelReader(
 	egressResult := <-egressBytesCh
 	closeBoth()
 
+	ingressErrBenign := isBenignTunnelCopyError(ingressResult.err)
+	egressErrBenign := isBenignTunnelCopyError(egressResult.err)
+	// A client-side TCP reset after the upstream response has already started is
+	// a shutdown artifact, not an upstream failure. This commonly happens when a
+	// tunnel client exits immediately after consuming the response.
+	if !egressErrBenign && ingressResult.n > 0 && isClientReadResetError(egressResult.err) {
+		egressErrBenign = true
+	}
+
 	result := tunnelRelayResult{
 		ingressBytes: ingressResult.n,
 		egressBytes:  egressResult.n,
 		netOK:        true,
 	}
 	switch {
-	case !isBenignTunnelCopyError(ingressResult.err):
+	case !ingressErrBenign:
 		result.netOK = false
 		result.proxyErr = ErrUpstreamRequestFailed
 		result.upstreamStage = "connect_upstream_to_client_copy"
 		result.upstreamErr = ingressResult.err
-	case !isBenignTunnelCopyError(egressResult.err):
+	case !egressErrBenign:
 		result.netOK = false
 		result.proxyErr = ErrUpstreamRequestFailed
 		result.upstreamStage = "connect_client_to_upstream_copy"
