@@ -50,6 +50,9 @@ const defaultFilters: FilterDraft = {
   limit: 100,
 };
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 500, 1000, 2000] as const;
+const REQUEST_LOGS_FORWARD_BADGE_CLASS = "request-logs-proxy-badge-forward";
+const REQUEST_LOGS_REVERSE_BADGE_CLASS = "request-logs-proxy-badge-reverse";
+const REQUEST_LOGS_SOCKS_BADGE_CLASS = "request-logs-proxy-badge-socks";
 
 const PAYLOAD_TABS = ["request", "response"] as const;
 type PayloadTab = (typeof PAYLOAD_TABS)[number];
@@ -287,6 +290,19 @@ function proxyTypeLabel(proxyType: number): string {
   return String(proxyType);
 }
 
+function proxyTypeBadgeClassName(proxyType: number): string | null {
+  if (proxyType === 1) {
+    return REQUEST_LOGS_FORWARD_BADGE_CLASS;
+  }
+  if (proxyType === 2) {
+    return REQUEST_LOGS_REVERSE_BADGE_CLASS;
+  }
+  if (proxyType === 3) {
+    return REQUEST_LOGS_SOCKS_BADGE_CLASS;
+  }
+  return null;
+}
+
 function dateLocale(): string {
   return isEnglishLocale(getCurrentLocale()) ? "en-US" : "zh-CN";
 }
@@ -512,6 +528,23 @@ export function RequestLogsPage() {
   }, [payloadQuery.data, payloadTab, t]);
 
   const hasMore = Boolean(logsQuery.data?.has_more && logsQuery.data?.next_cursor);
+  const renderProxyTypeBadge = (proxyType: number, context: "table" | "drawer" = "table") => {
+    const className = proxyTypeBadgeClassName(proxyType);
+    if (!className) {
+      return t(proxyTypeLabel(proxyType));
+    }
+
+    let label = "";
+    if (proxyType === 1) {
+      label = context === "drawer" ? t("HTTP") : t("正向");
+    } else if (proxyType === 2) {
+      label = t("反向");
+    } else {
+      label = t("SOCKS5");
+    }
+
+    return <Badge className={className}>{label}</Badge>;
+  };
 
   const col = useMemo(() => createColumnHelper<RequestLogItem>(), []);
 
@@ -531,13 +564,7 @@ export function RequestLogsPage() {
       }),
       col.accessor("proxy_type", {
         header: t("代理"),
-        cell: (info) => {
-          const val = info.getValue();
-          if (val === 1) return <Badge variant="info">{t("正向")}</Badge>;
-          if (val === 2) return <Badge variant="accent">{t("反向")}</Badge>;
-          if (val === 3) return <Badge variant="warning">{t("SOCKS5")}</Badge>;
-          return <Badge variant="neutral">{val}</Badge>;
-        },
+        cell: (info) => renderProxyTypeBadge(info.getValue()),
       }),
       col.display({
         id: "platform_account",
@@ -894,17 +921,7 @@ export function RequestLogsPage() {
                   </div>
                   <div>
                     <span>{t("代理类型")}</span>
-                    <p>
-                      {detailLog.proxy_type === 1 ? (
-                        <Badge variant="info">{t("HTTP")}</Badge>
-                      ) : detailLog.proxy_type === 2 ? (
-                        <Badge variant="accent">{t("反向")}</Badge>
-                      ) : detailLog.proxy_type === 3 ? (
-                        <Badge variant="warning">{t("SOCKS5")}</Badge>
-                      ) : (
-                        t(proxyTypeLabel(detailLog.proxy_type))
-                      )}
-                    </p>
+                    <p>{renderProxyTypeBadge(detailLog.proxy_type, "drawer")}</p>
                   </div>
                   <div>
                     <span>{t("HTTP")}</span>
