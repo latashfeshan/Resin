@@ -836,19 +836,24 @@ export function SubscriptionPage() {
                     ) : null}
                   </div>
 
-                  <div className="subscription-switch-item">
-                    <label className="subscription-switch-label" htmlFor="edit-sub-enabled">
-                      <span>{t("启用")}</span>
-                      <span
-                        className="subscription-info-icon"
-                        title={t(SUBSCRIPTION_DISABLE_HINT)}
-                        aria-label={t(SUBSCRIPTION_DISABLE_HINT)}
-                        tabIndex={0}
-                      >
-                        <Info size={13} />
-                      </span>
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="edit-sub-enabled" style={{ visibility: "hidden" }}>
+                      {t("启用")}
                     </label>
-                    <Switch id="edit-sub-enabled" {...editForm.register("enabled")} />
+                    <div className="subscription-switch-item">
+                      <label className="subscription-switch-label" htmlFor="edit-sub-enabled">
+                        <span>{t("启用")}</span>
+                        <span
+                          className="subscription-info-icon"
+                          title={t(SUBSCRIPTION_DISABLE_HINT)}
+                          aria-label={t(SUBSCRIPTION_DISABLE_HINT)}
+                          tabIndex={0}
+                        >
+                          <Info size={13} />
+                        </span>
+                      </label>
+                      <Switch id="edit-sub-enabled" {...editForm.register("enabled")} />
+                    </div>
                   </div>
 
                   <div className="platform-config-actions">
@@ -1067,19 +1072,24 @@ export function SubscriptionPage() {
                 ) : null}
               </div>
 
-              <div className="subscription-switch-item">
-                <label className="subscription-switch-label" htmlFor="create-sub-enabled">
-                  <span>{t("启用")}</span>
-                  <span
-                    className="subscription-info-icon"
-                    title={t(SUBSCRIPTION_DISABLE_HINT)}
-                    aria-label={t(SUBSCRIPTION_DISABLE_HINT)}
-                    tabIndex={0}
-                  >
-                    <Info size={13} />
-                  </span>
+              <div className="field-group">
+                <label className="field-label" htmlFor="create-sub-enabled" style={{ visibility: "hidden" }}>
+                  {t("启用")}
                 </label>
-                <Switch id="create-sub-enabled" {...createForm.register("enabled")} />
+                <div className="subscription-switch-item">
+                  <label className="subscription-switch-label" htmlFor="create-sub-enabled">
+                    <span>{t("启用")}</span>
+                    <span
+                      className="subscription-info-icon"
+                      title={t(SUBSCRIPTION_DISABLE_HINT)}
+                      aria-label={t(SUBSCRIPTION_DISABLE_HINT)}
+                      tabIndex={0}
+                    >
+                      <Info size={13} />
+                    </span>
+                  </label>
+                  <Switch id="create-sub-enabled" {...createForm.register("enabled")} />
+                </div>
               </div>
 
               <div className="detail-actions" style={{ justifyContent: "flex-end" }}>

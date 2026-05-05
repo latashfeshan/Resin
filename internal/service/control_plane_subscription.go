@@ -64,19 +64,19 @@ func (s *ControlPlaneService) subToResponse(sub *subscription.Subscription) Subs
 	}
 
 	resp := SubscriptionResponse{
-		ID:                    sub.ID,
-		Name:                  sub.Name(),
-		SourceType:            sub.SourceType(),
-		URL:                   sub.URL(),
-		Content:               sub.Content(),
-		UpdateInterval:        time.Duration(sub.UpdateIntervalNs()).String(),
-		NodeCount:             nodeCount,
-		HealthyNodeCount:      healthyNodeCount,
-		Ephemeral:             sub.Ephemeral(),
-		IncrementalAliveNodes: sub.IncrementalAliveNodes(),
+		ID:                      sub.ID,
+		Name:                    sub.Name(),
+		SourceType:              sub.SourceType(),
+		URL:                     sub.URL(),
+		Content:                 sub.Content(),
+		UpdateInterval:          time.Duration(sub.UpdateIntervalNs()).String(),
+		NodeCount:               nodeCount,
+		HealthyNodeCount:        healthyNodeCount,
+		Ephemeral:               sub.Ephemeral(),
+		IncrementalAliveNodes:   sub.IncrementalAliveNodes(),
 		EphemeralNodeEvictDelay: time.Duration(sub.EphemeralNodeEvictDelayNs()).String(),
-		Enabled:               sub.Enabled(),
-		CreatedAt:             time.Unix(0, sub.CreatedAtNs).UTC().Format(time.RFC3339Nano),
+		Enabled:                 sub.Enabled(),
+		CreatedAt:               time.Unix(0, sub.CreatedAtNs).UTC().Format(time.RFC3339Nano),
 	}
 	if lc := sub.LastCheckedNs.Load(); lc > 0 {
 		resp.LastChecked = time.Unix(0, lc).UTC().Format(time.RFC3339Nano)
@@ -116,14 +116,14 @@ func (s *ControlPlaneService) GetSubscription(id string) (*SubscriptionResponse,
 
 // CreateSubscriptionRequest holds create subscription parameters.
 type CreateSubscriptionRequest struct {
-	Name                  *string `json:"name"`
-	SourceType            *string `json:"source_type"`
-	URL                   *string `json:"url"`
-	Content               *string `json:"content"`
-	UpdateInterval        *string `json:"update_interval"`
-	Enabled               *bool   `json:"enabled"`
-	Ephemeral             *bool   `json:"ephemeral"`
-	IncrementalAliveNodes *bool   `json:"incremental_alive_nodes"`
+	Name                    *string `json:"name"`
+	SourceType              *string `json:"source_type"`
+	URL                     *string `json:"url"`
+	Content                 *string `json:"content"`
+	UpdateInterval          *string `json:"update_interval"`
+	Enabled                 *bool   `json:"enabled"`
+	Ephemeral               *bool   `json:"ephemeral"`
+	IncrementalAliveNodes   *bool   `json:"incremental_alive_nodes"`
 	EphemeralNodeEvictDelay *string `json:"ephemeral_node_evict_delay"`
 }
 

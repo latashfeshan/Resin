@@ -25,6 +25,8 @@ const (
 	stateVersionNormalizeMissAction      = 4
 	stateVersionAddIncrementalAliveNodes = 5
 	stateLegacyBaselineVersion           = stateVersionAddFixedAccountHeader
+
+	stateBaseSchemaMigration = stateMigrationsPath + "/000001_state_base.up.sql"
 )
 
 //go:embed migrations/state/*.sql migrations/cache/*.sql
@@ -112,11 +114,11 @@ func prepareLegacyStateBaseline(db *sql.DB, driver migratedb.Driver) error {
 
 	switch {
 	case hasEmptyBehavior && hasFixedHeader && hasIncrementalAliveNodes:
-		return setMigrationVersion(driver, stateVersionAddIncrementalAliveNodes)
+		return setLegacyMigrationVersion(db, driver, stateVersionAddIncrementalAliveNodes)
 	case hasEmptyBehavior && hasFixedHeader:
-		return setMigrationVersion(driver, stateLegacyBaselineVersion)
+		return setLegacyMigrationVersion(db, driver, stateLegacyBaselineVersion)
 	case hasEmptyBehavior && !hasFixedHeader:
-		return setMigrationVersion(driver, stateVersionAddEmptyAccountBehavior)
+		return setLegacyMigrationVersion(db, driver, stateVersionAddEmptyAccountBehavior)
 	case !hasEmptyBehavior && hasFixedHeader:
 		// This mixed state should not happen in normal upgrades. Repair it once.
 		if err := ensureTableColumn(
@@ -127,7 +129,7 @@ func prepareLegacyStateBaseline(db *sql.DB, driver migratedb.Driver) error {
 		); err != nil {
 			return err
 		}
-		return setMigrationVersion(driver, stateLegacyBaselineVersion)
+		return setLegacyMigrationVersion(db, driver, stateLegacyBaselineVersion)
 	default:
 		// No baseline metadata: migrate from base schema.
 		return nil
@@ -145,6 +147,24 @@ func hasMigrationVersion(db *sql.DB, table string) (bool, error) {
 func setMigrationVersion(driver migratedb.Driver, version int) error {
 	if err := driver.SetVersion(version, false); err != nil {
 		return fmt.Errorf("set migration version=%d: %w", version, err)
+	}
+	return nil
+}
+
+func setLegacyMigrationVersion(db *sql.DB, driver migratedb.Driver, version int) error {
+	if err := ensureStateBaseSchema(db); err != nil {
+		return err
+	}
+	return setMigrationVersion(driver, version)
+}
+
+func ensureStateBaseSchema(db *sql.DB) error {
+	schema, err := migrationsFS.ReadFile(stateBaseSchemaMigration)
+	if err != nil {
+		return fmt.Errorf("read state base schema: %w", err)
+	}
+	if _, err := db.Exec(string(schema)); err != nil {
+		return fmt.Errorf("ensure state base schema: %w", err)
 	}
 	return nil
 }

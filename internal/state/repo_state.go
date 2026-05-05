@@ -314,7 +314,7 @@ func (r *StateRepo) UpsertSubscription(s model.Subscription) error {
 				ephemeral_node_evict_delay_ns = excluded.ephemeral_node_evict_delay_ns,
 				updated_at_ns      = excluded.updated_at_ns
 		`, s.ID, s.Name, s.SourceType, s.URL, s.Content, s.UpdateIntervalNs, s.Enabled,
-			s.Ephemeral, s.IncrementalAliveNodes, s.EphemeralNodeEvictDelayNs, s.CreatedAtNs, s.UpdatedAtNs)
+		s.Ephemeral, s.IncrementalAliveNodes, s.EphemeralNodeEvictDelayNs, s.CreatedAtNs, s.UpdatedAtNs)
 	return err
 }
 

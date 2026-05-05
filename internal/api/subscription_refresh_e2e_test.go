@@ -43,8 +43,8 @@ func TestAPIContract_SubscriptionRefreshAction_E2EHTTPSource(t *testing.T) {
 	})
 
 	createRec := doJSONRequest(t, srv, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"name": "sub-e2e",
-		"url":  subscriptionSource.URL + "/sub",
+		"name":                    "sub-e2e",
+		"url":                     subscriptionSource.URL + "/sub",
 		"incremental_alive_nodes": true,
 	}, true)
 	if createRec.Code != http.StatusCreated {

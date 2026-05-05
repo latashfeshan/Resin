@@ -514,6 +514,9 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
     "After disabling a subscription, related nodes will not participate in platform routing, health statistics, or automatic probing.",
   "临时订阅的非健康节点会在一段时间后被自动删除。订阅本身不会被删除。":
     "Unhealthy nodes in temporary subscriptions will be auto-removed after a delay. The subscription itself will not be deleted.",
+  "存活节点增量模式": "Incremental Alive Nodes",
+  "开启后刷新时保留当前仍存活的旧节点，仅清理失效旧节点，并合并新订阅内容；关闭后仅保留刷新后的订阅内容。":
+    "When enabled, refresh keeps existing old nodes that are still alive, removes only stale old nodes, and merges the new subscription content. When disabled, only the refreshed subscription content is kept.",
   "开始测试": "Start test",
   "例如 12h": "e.g. 12h",
   "例如 168h": "e.g. 168h",
