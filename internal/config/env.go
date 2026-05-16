@@ -41,6 +41,7 @@ type EnvConfig struct {
 	DefaultPlatformAllocationPolicy                 string
 	ProbeTimeout                                    time.Duration
 	ResourceFetchTimeout                            time.Duration
+	NodeDNSUpstreams                                []string
 	ProxyTransportMaxIdleConns                      int
 	ProxyTransportMaxIdleConnsPerHost               int
 	ProxyTransportIdleConnTimeout                   time.Duration
@@ -67,6 +68,16 @@ type EnvConfig struct {
 	MetricLeasesRetentionSeconds      int
 	MetricLatencyBinWidthMS           int
 	MetricLatencyBinOverflowMS        int
+}
+
+// DefaultNodeDNSUpstreams returns the default node DNS upstream URI list.
+func DefaultNodeDNSUpstreams() []string {
+	return []string{
+		"https://doh.pub/dns-query",
+		"https://dns.alidns.com/dns-query",
+		"tls://223.5.5.5?sni=dns.alidns.com",
+		"local",
+	}
 }
 
 // LoadEnvConfig reads environment variables and returns a validated EnvConfig.
@@ -110,6 +121,7 @@ func LoadEnvConfig() (*EnvConfig, error) {
 	)
 	cfg.ProbeTimeout = envDuration("RESIN_PROBE_TIMEOUT", 15*time.Second, &errs)
 	cfg.ResourceFetchTimeout = envDuration("RESIN_RESOURCE_FETCH_TIMEOUT", 30*time.Second, &errs)
+	cfg.NodeDNSUpstreams = envStringSlice("RESIN_NODE_DNS_UPSTREAMS", DefaultNodeDNSUpstreams(), &errs)
 	cfg.ProxyTransportMaxIdleConns = envInt("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS", 1024, &errs)
 	cfg.ProxyTransportMaxIdleConnsPerHost = envInt("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS_PER_HOST", 64, &errs)
 	cfg.ProxyTransportIdleConnTimeout = envDuration("RESIN_PROXY_TRANSPORT_IDLE_CONN_TIMEOUT", 90*time.Second, &errs)
@@ -282,6 +294,14 @@ func LoadEnvConfig() (*EnvConfig, error) {
 	}
 	if cfg.ResourceFetchTimeout <= 0 {
 		errs = append(errs, "RESIN_RESOURCE_FETCH_TIMEOUT must be positive")
+	}
+	if len(cfg.NodeDNSUpstreams) == 0 {
+		errs = append(errs, "RESIN_NODE_DNS_UPSTREAMS must contain at least one DNS upstream when defined")
+	}
+	for i, upstream := range cfg.NodeDNSUpstreams {
+		if strings.TrimSpace(upstream) == "" {
+			errs = append(errs, fmt.Sprintf("RESIN_NODE_DNS_UPSTREAMS[%d] must not be empty", i))
+		}
 	}
 	validatePositive("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS", cfg.ProxyTransportMaxIdleConns, &errs)
 	validatePositive("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS_PER_HOST", cfg.ProxyTransportMaxIdleConnsPerHost, &errs)

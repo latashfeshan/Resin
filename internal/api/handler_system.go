@@ -27,6 +27,7 @@ type systemEnvConfigResponse struct {
 	DefaultPlatformAllocationPolicy                 string          `json:"default_platform_allocation_policy"`
 	ProbeTimeout                                    config.Duration `json:"probe_timeout"`
 	ResourceFetchTimeout                            config.Duration `json:"resource_fetch_timeout"`
+	NodeDNSUpstreams                                []string        `json:"node_dns_upstreams"`
 	ProxyTransportMaxIdleConns                      int             `json:"proxy_transport_max_idle_conns"`
 	ProxyTransportMaxIdleConnsPerHost               int             `json:"proxy_transport_max_idle_conns_per_host"`
 	ProxyTransportIdleConnTimeout                   config.Duration `json:"proxy_transport_idle_conn_timeout"`
@@ -123,6 +124,7 @@ func systemEnvConfigSnapshot(envCfg *config.EnvConfig) *systemEnvConfigResponse 
 		DefaultPlatformAllocationPolicy:                 envCfg.DefaultPlatformAllocationPolicy,
 		ProbeTimeout:                                    config.Duration(envCfg.ProbeTimeout),
 		ResourceFetchTimeout:                            config.Duration(envCfg.ResourceFetchTimeout),
+		NodeDNSUpstreams:                                append([]string(nil), envCfg.NodeDNSUpstreams...),
 		ProxyTransportMaxIdleConns:                      envCfg.ProxyTransportMaxIdleConns,
 		ProxyTransportMaxIdleConnsPerHost:               envCfg.ProxyTransportMaxIdleConnsPerHost,
 		ProxyTransportIdleConnTimeout:                   config.Duration(envCfg.ProxyTransportIdleConnTimeout),

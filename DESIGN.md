@@ -2290,6 +2290,9 @@ GeoIP 与订阅的下载都有错误重试的需求。
 * `RESIN_DEFAULT_PLATFORM_ALLOCATION_POLICY`：默认平台分配策略。枚举：`BALANCED|PREFER_LOW_LATENCY|PREFER_IDLE_IP`。默认 `BALANCED`。
 * `RESIN_PROBE_TIMEOUT`：单次探测请求超时。默认 "15s"。
 * `RESIN_RESOURCE_FETCH_TIMEOUT`：资源下载（订阅/GeoIP）单次尝试超时。默认 "30s"。
+* `RESIN_NODE_DNS_UPSTREAMS`：Resin 托管节点域名解析上游，JSON 字符串数组。默认值为 `["https://doh.pub/dns-query","https://dns.alidns.com/dns-query","tls://223.5.5.5?sni=dns.alidns.com","local"]`；设置后完全按数组顺序作为 failover 链。仅作用于内部 sing-box builder 解析节点域名，不影响订阅下载、GeoIP 下载等其他资源下载路径。
+  * 支持：`local`、`udp://host[:port]`、`tcp://host[:port]`、`tls://host[:port]?sni=name`、`quic://host[:port]?sni=name`、`https://host[:port][/path]?sni=name&bootstrap=local`、`h3://host[:port][/path]?sni=name&bootstrap=local`。
+  * 默认端口由传输类型决定：UDP/TCP 为 53，DoT/DoQ 为 853，DoH/H3 为 443；DoH/H3 默认路径为 `/dns-query`。
 
 日志相关配置：
 * `RESIN_REQUEST_LOG_QUEUE_SIZE`：日志写入队列大小。至少是 RESIN_REQUEST_LOG_QUEUE_FLUSH_BATCH_SIZE 的两倍。默认 8192。
@@ -2321,10 +2324,10 @@ GeoIP 与订阅的下载都有错误重试的需求。
 * `RESIN_METRIC_LATENCY_BIN_OVERFLOW_MS`：延迟统计溢出值，默认 3000ms。
 
 ### 节点默认 DNS 解析链
-Resin 托管节点的默认域名解析使用固定安全 DNS 链，不通过环境变量配置：
+Resin 托管节点的默认域名解析使用 `RESIN_NODE_DNS_UPSTREAMS` 的环境变量默认值：
 1. `https://doh.pub/dns-query`
 2. `https://dns.alidns.com/dns-query`
-3. `tls://223.5.5.5`
+3. `tls://223.5.5.5?sni=dns.alidns.com`
 4. `local`
 
 说明：
@@ -2332,6 +2335,7 @@ Resin 托管节点的默认域名解析使用固定安全 DNS 链，不通过环
 * 当前 3 个安全 DNS 上游全部失败时，降级回退到 `local`，保证节点仍可解析和连通。
 * `doh.pub` 与 `dns.alidns.com` 这两个 DoH 域名自身的 bootstrap 解析继续使用 `local`。
 * 此默认 DNS 链仅作用于 Resin 内部 sing-box builder 上下文中的默认域名解析；订阅下载、GeoIP 下载等其他下载路径仍保持原有行为。
+* 如需私有 DNS，可通过 `RESIN_NODE_DNS_UPSTREAMS` 覆盖默认链。该变量只接受 URI 字符串数组，例如 `["udp://10.0.0.53","local"]`；不支持对象格式，也不透传完整 sing-box DNS 配置。
 
 ### 运行时全局设置项（支持热更新）
 Resin 支持通过 API (`PATCH /system/config`) 动态调整大部分全局运行参数。配置文件存储于数据库。

@@ -481,6 +481,7 @@ const EXACT_ZH_TO_EN: Record<string, string> = {
     "Rebuild available nodes for this platform without changing configuration.",
   "状态存储目录": "State storage directory",
   "资源获取超时时间": "Resource fetch timeout",
+  "节点 DNS 上游": "Node DNS upstreams",
   "总请求数 / 成功请求数": "Total requests / successful requests",
   "租期保留时间": "Lease retention window",
   "租期抽样间隔": "Lease sampling interval",
