@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -542,6 +543,21 @@ func TestLoadEnvConfig_InvalidDefaultPlatformRegex(t *testing.T) {
 		t.Fatal("expected error for invalid default platform regex")
 	}
 	assertContains(t, err.Error(), "RESIN_DEFAULT_PLATFORM_REGEX_FILTERS")
+}
+
+func TestLoadEnvConfig_DefaultPlatformRegexRuleSyntax(t *testing.T) {
+	envs := requiredEnvs()
+	envs["RESIN_DEFAULT_PLATFORM_REGEX_FILTERS"] = `["hk","*fast","!expired","\\!literal"]`
+	setEnvs(t, envs)
+
+	cfg, err := LoadEnvConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"hk", "*fast", "!expired", `\!literal`}
+	if !reflect.DeepEqual(cfg.DefaultPlatformRegexFilters, want) {
+		t.Fatalf("default platform regex rules: got %v, want %v", cfg.DefaultPlatformRegexFilters, want)
+	}
 }
 
 func TestLoadEnvConfig_InvalidProbeTimeout(t *testing.T) {
