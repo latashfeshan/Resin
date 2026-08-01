@@ -2337,7 +2337,7 @@ GeoIP 与订阅的下载都有错误重试的需求。
 * `RESIN_REQUEST_LOG_QUEUE_FLUSH_BATCH_SIZE`：批量写入数据库的大小。默认 4096.
 * `RESIN_REQUEST_LOG_QUEUE_FLUSH_INTERVAL`：写库间隔。默认 "5m"。
 * `RESIN_REQUEST_LOG_DB_MAX_MB`：SQLite 当前活动日志数据库的最大字节数。默认 512。
-* `RESIN_REQUEST_LOG_DB_RETAIN_COUNT`：保留的历史日志数据库文件数量（滚动日志），默认 5。
+* `RESIN_REQUEST_LOG_DB_RETAIN_COUNT`：保留的日志数据库文件总数（滚动日志），默认 2。
 
 认证设置：
 * 启动时会先加载当前工作目录下的 `.env` 文件（文件不存在则忽略；格式错误则拒绝启动）；系统或 shell 已设置的环境变量优先于 `.env`。
