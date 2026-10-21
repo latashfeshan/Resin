@@ -9,7 +9,7 @@ RUN npm ci
 COPY webui/ ./
 RUN npm run build
 
-FROM golang:1.25-alpine AS go-builder
+FROM golang:1.26.10-alpine AS go-builder
 WORKDIR /src
 
 RUN apk add --no-cache git
